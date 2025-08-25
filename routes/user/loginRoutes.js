@@ -2,40 +2,37 @@ import express from 'express';
 import verifyFirebaseToken from '../../middleware/verifyFirebaseToken.js';
 import verifyAllowed from '../../middleware/verifyAllowed.js';
 import { User } from '../../models/relations.js';
-
+import { Sequelize } from "sequelize";
 const loginRouter = express.Router();
 
 // Login or Register
 loginRouter.post("/login", verifyFirebaseToken, verifyAllowed, async (req, res) => {
-    const { uid, email, name, regNo } = req.user;
+    const { email, name, regNo } = req.user;
 
-    if (!uid || !email || !name || !regNo) {
+    if (!email || !name || !regNo) {
         return res.status(400).json({ message: "Email, Name and RegNo are required" });
     }
 
     try {
-        let user = await User.findOne({ where: { firebaseId: uid } });
-
-        if (!user) {
-            // also check email uniqueness
-            const existingEmailUser = await User.findOne({ where: { email: email.toLowerCase() } });
-            if (existingEmailUser) {
-                return res.status(400).json({ message: "Email already registered with another account" });
-            }
-
-            user = await User.create({
-                firebaseId: uid,
+        const [user, created] = await User.findOrCreate({
+            where: { email: email.toLowerCase() },
+            defaults: {
                 name,
-                email: email.toLowerCase(),
                 regNo
-            });
-        }
+            }
+        });
 
         return res.status(200).json({
-            message: "Logged in successfully",
+            message: created ? "User registered successfully" : "Logged in successfully",
             user
         });
     } catch (error) {
+        if (error instanceof Sequelize.UniqueConstraintError) {
+            return res.status(409).json({ 
+                message: "A user with this RegNo or Email already exists. Please contact support." 
+            });
+        }
+
         console.error(error);
         res.status(500).json({ message: "Internal server error" });
     }

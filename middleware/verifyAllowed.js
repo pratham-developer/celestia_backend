@@ -6,7 +6,7 @@ const verifyAllowed = async (req, res, next) => {
             return res.status(401).json({ message: "Login not done." });
         }
 
-        const email = req.user.email;
+        const email = req.user.email?.toLowerCase();
         if (!email) {
             return res.status(403).json({ message: "Login using your VIT email." });
         }

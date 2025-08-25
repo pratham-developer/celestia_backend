@@ -3,15 +3,18 @@ import cors from 'cors';
 import morgan from "morgan";
 import dotenv from 'dotenv';
 import helmet from 'helmet';
-import { initDB } from '../config/db.js'; // Adjust path if needed
-import { syncDB } from '../config/db.js'; // Adjust path if needed
-import { apiKeyMiddleware } from '../middleware/apiKey.js'; // Adjust path based on your structure
-import verifyFirebaseToken from '../middleware/verifyFirebaseToken.js'; // Adjust path
+import { initDB } from '../config/db.js';
+import { syncDB } from '../config/db.js';
+import { apiKeyMiddleware } from '../middleware/apiKey.js';
+import verifyFirebaseToken from '../middleware/verifyFirebaseToken.js';
 
+
+//import routers
 import loginRouter from '../routes/user/loginRoutes.js';
+import allowOthersRouter from '../routes/admin/allowOthers.js';
 
 // Import models here so they register automatically
-import {AllowedEmail, User} from "../models/relations.js"; 
+import {AllowedEmail, User, Admin} from "../models/relations.js"; 
 
 dotenv.config();
 const app = express();
@@ -49,6 +52,7 @@ if (process.env.NODE_ENV === "prod") {
 }
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(helmet({
   contentSecurityPolicy: process.env.NODE_ENV === "prod",
 }));
@@ -69,6 +73,7 @@ app.get('/protected', verifyFirebaseToken, (req, res) => {
 
 //Login Routes
 app.use("/user",loginRouter);
+app.use("/admin",allowOthersRouter)
 
 // Global error handler (should be last)
 app.use((err, req, res, next) => {

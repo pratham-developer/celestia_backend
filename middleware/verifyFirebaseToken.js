@@ -17,7 +17,6 @@ const verifyFirebaseToken = async (req, res, next) => {
             return res.status(401).json({ message: "Use VIT student email" });
         }
 
-        const uid = decodedToken.uid;
         const displayName = decodedToken.name || "";
 
         // safer parsing
@@ -26,7 +25,6 @@ const verifyFirebaseToken = async (req, res, next) => {
         const reg = regIndex > 0 ? displayName.slice(regIndex + 1) : null;
 
         req.user = {
-            uid,
             email,
             name: fullName,
             regNo: reg

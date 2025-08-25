@@ -1,18 +1,17 @@
+// Updated Admin model with hooks
 import { DataTypes } from "sequelize";
 import sequelize from "../config/db.js";
 
-const AllowedEmail = sequelize.define("AllowedEmail", {
+const Admin = sequelize.define("Admin", {
   email: {
     type: DataTypes.STRING,
-    primaryKey: true,
     allowNull: false,
     unique: true,
-    validate: {
-      isEmail: true,
-    },
+    validate: { isEmail: true },
+    primaryKey: true
   },
 }, {
-  tableName: "allowed_emails",
+  tableName: "admins",
   timestamps: false,
   hooks: {
     beforeCreate: (record) => {
@@ -27,4 +26,4 @@ const AllowedEmail = sequelize.define("AllowedEmail", {
   ],
 });
 
-export default AllowedEmail;
+export default Admin;
