@@ -14,7 +14,7 @@ import loginRouter from '../routes/user/loginRoutes.js';
 import allowOthersRouter from '../routes/admin/allowOthers.js';
 
 // Import models here so they register automatically
-import {AllowedEmail, User, Admin} from "../models/relations.js"; 
+import {AllowedEmail, User, Admin, Team, Track, Round} from "../models/relations.js"; 
 
 dotenv.config();
 const app = express();

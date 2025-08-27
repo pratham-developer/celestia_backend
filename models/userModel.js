@@ -1,4 +1,3 @@
-// Updated User model with hooks
 import { DataTypes } from "sequelize";
 import sequelize from "../config/db.js";
 
@@ -23,6 +22,10 @@ const User = sequelize.define("User", {
     allowNull: false,
     unique: true,
   },
+  teamNo: {
+    type: DataTypes.INTEGER,
+    allowNull : true,
+  }
 }, {
   tableName: "users",
   timestamps: false,

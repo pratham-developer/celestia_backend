@@ -1,4 +1,3 @@
-// Updated Admin model with hooks
 import { DataTypes } from "sequelize";
 import sequelize from "../config/db.js";
 
