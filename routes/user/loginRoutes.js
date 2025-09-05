@@ -3,6 +3,7 @@ import verifyFirebaseToken from '../../middleware/verifyFirebaseToken.js';
 import verifyAllowed from '../../middleware/verifyAllowed.js';
 import { User } from '../../models/relations.js';
 import { Sequelize } from "sequelize";
+import teamRouter from './teamRoutes.js';
 const loginRouter = express.Router();
 
 // Login or Register
@@ -54,5 +55,8 @@ loginRouter.get("/", verifyFirebaseToken, async (req, res) => {
         return res.status(500).json({ message: "Server error" });
     }
 });
+
+//Team Creation Routes
+loginRouter.use("/team", teamRouter);
 
 export default loginRouter;
