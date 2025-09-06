@@ -6,9 +6,9 @@ import Chance from 'chance';
 import Team from '../../models/teamModel.js';
 import Track from '../../models/trackModel.js';
 import sequelize from '../../config/db.js';
+import { where } from 'sequelize';
 
 const teamRouter = Router();
-
 
 //Create a new team
 teamRouter.post("/create", verifyFirebaseToken, verifyAllowed, async(req, res) => {
@@ -85,9 +85,32 @@ teamRouter.post("/create", verifyFirebaseToken, verifyAllowed, async(req, res) =
 })
 
 //Join a existing team
-teamRouter.post("/create", verifyFirebaseToken, verifyAllowed, async(req, res) => {
+teamRouter.post("/join", verifyFirebaseToken, verifyAllowed, async(req, res) => {
+    //Get userId, teamCode
+    const {userId, teamCode} = req.body;
+
+    //Check if missing data
+    if(!userId || !teamCode) return res.status(400).json({message: "Try Again, Some Data is missing"})
+
+    //Check if the team exists
+    const team = await Team.findOne({
+        where:{
+            teamCode : teamCode
+        }
+    })
+    if(!team) res.status(400).json({message : "Invalid Team Code"});
+
+    //find the user -> if user exists update the team else respond eith 400
+    const [affectedCount] = await User.update({teamNo : team.srNo}, {where : {id: userId, teamNo: null}});
+
+    if(affectedCount === 0){
+        return res.status(400).json({
+            message: "User does not exist or already in a team"
+        })
+    }
+
     res.json({
-        message : "Reached end of endpoint"
+        message : "Team is joined successfully"
     })
 })
 
