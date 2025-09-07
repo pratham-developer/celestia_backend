@@ -114,5 +114,33 @@ teamRouter.post("/join", verifyFirebaseToken, verifyAllowed, async(req, res) => 
     })
 })
 
+//dissolve an existing team
+teamRouter.post("/delete", verifyFirebaseToken, verifyAllowed, async(req, res) => {
+    //Get the userId
+    const {userId} = req.body;
+
+    //Check if the user exists
+    const user = await User.findByPk(userId);
+
+    //Check if the user exists and if he/she is part of any team
+    if(!user) return res.status(400).json({message : "User does not exist"});
+    if(!user.teamNo) return res.status(400).json({message : "User is not part of any team"});
+
+    //Set the team status as dissolved
+    try{
+        //Updates the team status to dissolved only if team exists and user is the team leader
+        const [affectedCount] = await Team.update({status : "dissolved"}, {where : {srNo : user.teamNo, leaderId : userId}});
+        if(affectedCount == 0) return res.status(500).json({message : "Only leader can delete the team"});
+
+        res.json({message : "Your Team is successfully deleted"});
+    }
+    catch(error){
+        console.error(error);
+        return res.status(500).json({ message: "Server error" })        
+    }
+})
+
+
+
 
 export default teamRouter;
