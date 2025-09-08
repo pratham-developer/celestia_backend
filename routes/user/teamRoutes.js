@@ -6,33 +6,35 @@ import Chance from 'chance';
 import Team from '../../models/teamModel.js';
 import Track from '../../models/trackModel.js';
 import sequelize from '../../config/db.js';
-import { where } from 'sequelize';
+import verifyLogin from '../../middleware/verifyLogin.js'
 
 const teamRouter = Router();
 
 //Create a new team
-teamRouter.post("/create", verifyFirebaseToken, verifyAllowed, async(req, res) => {
+teamRouter.post("/create", verifyFirebaseToken, verifyAllowed, verifyLogin, async(req, res) => {
     //Get the Data
-    const {leaderId, name, trackId} = req.body;
-    if(!leaderId || !name || !trackId){
+    const user = req.userData;
+    const {name, trackId} = req.body;
+    if(!name || !trackId){
         return res.status(400).json({
             message : "Try Again, Some Data is missing"
         })
     }
 
-    //Check if user is already in a team -> (40_) and if track is present
-    const [user, track] = await Promise.all([
-        User.findByPk(leaderId),
-        Track.findByPk(trackId)
-    ])
-    if(!user) 
-        return res.status(400).json({ message : "User does not exist" })
-
     if(user.teamNo)
         return res.status(400).json({ message : "You are already part of a team" })
 
-    if(!track)
-        return res.status(400).json({ "message" : "Please enter a valid Track" })
+    //Check if user is already in a team -> (40_) and if track is present
+    try{
+        const track = await Track.findByPk(trackId)
+        if(!track)
+            return res.status(400).json({ "message" : "Please enter a valid Track" })
+    }
+    catch(error){
+        console.error(error);
+        return res.status(500).json({ message: "Server error" })        
+    }
+    
 
     //generate unique code
     const chance = new Chance();
@@ -50,7 +52,7 @@ teamRouter.post("/create", verifyFirebaseToken, verifyAllowed, async(req, res) =
                 {
                 name,
                 teamCode : generateTeamCode(),
-                leaderId,
+                leaderId : user.id,
                 trackId
                 },
                 {transaction : t}
@@ -60,6 +62,7 @@ teamRouter.post("/create", verifyFirebaseToken, verifyAllowed, async(req, res) =
             user.teamNo = team.srNo;
             await user.save({transaction : t});
 
+            //Commit the transaction
             await t.commit();
             return res.json({
                 message : "Team Created Successfully",
@@ -85,52 +88,54 @@ teamRouter.post("/create", verifyFirebaseToken, verifyAllowed, async(req, res) =
 })
 
 //Join a existing team
-teamRouter.post("/join", verifyFirebaseToken, verifyAllowed, async(req, res) => {
-    //Get userId, teamCode
-    const {userId, teamCode} = req.body;
+teamRouter.post("/join", verifyFirebaseToken, verifyAllowed, verifyLogin, async(req, res) => {
+    //Get user, teamCode
+    const {teamCode} = req.body;
+    const user = req.userData;
+
+    //Check if user is already associated witha a team
+    if(user.teamNo != null) return res.status(400).json({message : "User is already present in a team"})
 
     //Check if missing data
-    if(!userId || !teamCode) return res.status(400).json({message: "Try Again, Some Data is missing"})
+    if(!teamCode) return res.status(400).json({message: "Try Again, Team Code is missing"})
 
-    //Check if the team exists
-    const team = await Team.findOne({
-        where:{
-            teamCode : teamCode
-        }
-    })
-    if(!team) res.status(400).json({message : "Invalid Team Code"});
+    try{
+        //Check if the team exists
+        const team = await Team.findOne({
+            where:{
+                teamCode : teamCode
+            }
+        })
+        if(!team) return res.status(400).json({message : "Invalid Team Code"});
 
-    //find the user -> if user exists update the team else respond eith 400
-    const [affectedCount] = await User.update({teamNo : team.srNo}, {where : {id: userId, teamNo: null}});
+        //find the user -> if user exists update the team else respond eith 400
+        user.teamNo = team.srNo;
+        await user.save();
 
-    if(affectedCount === 0){
-        return res.status(400).json({
-            message: "User does not exist or already in a team"
+        //Return success message
+        res.json({
+            message : "Team is joined successfully"
         })
     }
-
-    res.json({
-        message : "Team is joined successfully"
-    })
+    catch(error){
+        console.error(error);
+        return res.status(500).json({ message: "Server error" })        
+    }
 })
 
 //dissolve an existing team
-teamRouter.post("/delete", verifyFirebaseToken, verifyAllowed, async(req, res) => {
-    //Get the userId
-    const {userId} = req.body;
-
+teamRouter.post("/delete", verifyFirebaseToken, verifyAllowed, verifyLogin, async(req, res) => {
     //Check if the user exists
-    const user = await User.findByPk(userId);
+    const user = req.userData;
 
-    //Check if the user exists and if he/she is part of any team
-    if(!user) return res.status(400).json({message : "User does not exist"});
+    //Check if the user  is part of any team
     if(!user.teamNo) return res.status(400).json({message : "User is not part of any team"});
 
     //Set the team status as dissolved
     try{
         //Updates the team status to dissolved only if team exists and user is the team leader
-        const [affectedCount] = await Team.update({status : "dissolved"}, {where : {srNo : user.teamNo, leaderId : userId}});
-        if(affectedCount == 0) return res.status(500).json({message : "Only leader can delete the team"});
+        const [affectedCount] = await Team.update({status : "dissolved"}, {where : {srNo : user.teamNo, leaderId : user.id}});
+        if(affectedCount == 0) return res.status(403).json({message : "Only leader can delete the team"});
 
         res.json({message : "Your Team is successfully deleted"});
     }
