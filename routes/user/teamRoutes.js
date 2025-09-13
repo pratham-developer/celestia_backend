@@ -7,6 +7,7 @@ import Team from '../../models/teamModel.js';
 import Track from '../../models/trackModel.js';
 import sequelize from '../../config/db.js';
 import verifyLogin from '../../middleware/verifyLogin.js'
+import { where } from 'sequelize';
 
 const teamRouter = Router();
 
@@ -143,6 +144,64 @@ teamRouter.post("/delete", verifyFirebaseToken, verifyAllowed, verifyLogin, asyn
         console.error(error);
         return res.status(500).json({ message: "Server error" })        
     }
+})
+
+//Make team leader
+teamRouter.post("/makeLeader", verifyFirebaseToken, verifyAllowed, verifyLogin, async (req,res) => {
+    const leader = req.userData;
+
+    if(!leader.teamNo) return res.status(400).json({message : "You are not part of a team"});
+
+    const {userId} = req.body;
+    if(!userId) return res.status(400).json({message: "userId is missing"});
+
+    try{
+        const team = await Team.findOne({where : {leaderId: leader.id}});
+        
+        if (!team) {
+            return res.status(403).json({ message: "You are not the leader of any team" });
+        }
+
+        if(team.status === "dissolved"){
+            return res.status(400).json({
+                message: "Leader's team is deleted"
+            })
+        }
+
+        const user = await User.findByPk(userId);
+
+        if(!user){
+            return res.status(400).json({
+                message: "User does not exist"
+            })
+        }
+
+        if(user.teamNo != leader.teamNo){
+            return res.status(400).json({
+                message: "User is not in the same team as leader"
+            })
+        }
+
+         if (user.id === leader.id) {
+            return res.status(400).json({ message: "You are already the leader" });
+        }
+
+        //Changing the leader
+        team.leaderId = user.id;
+        await team.save();
+
+        return res.json({
+            message: "Leader changed successfully",
+            leaderId: user.id,
+            teamNo: team.srNo
+        })
+    }
+    catch(error){
+        console.error(error);
+        return res.status(500).json({ message: "Server error" })
+    }
+
+
 })
 
 
