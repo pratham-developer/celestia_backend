@@ -7,7 +7,7 @@ import Team from '../../models/teamModel.js';
 import Track from '../../models/trackModel.js';
 import sequelize from '../../config/db.js';
 import verifyLogin from '../../middleware/verifyLogin.js'
-import { where } from 'sequelize';
+import { Op } from 'sequelize';
 
 const teamRouter = Router();
 
@@ -205,6 +205,52 @@ teamRouter.post("/makeLeader", verifyFirebaseToken, verifyAllowed, verifyLogin, 
 })
 
 
+//leave a team
+teamRouter.post("/leave", verifyFirebaseToken, verifyAllowed, verifyLogin, async(req, res) => {
+    //Check if the user exists
+    const user = req.userData;
+
+    //Check if the user  is part of any team
+    if(!user.teamNo) return res.status(400).json({message : "User is not part of any team"});
+    const teamNo  = user.teamNo;
+
+    const t = await sequelize.transaction();
+    try{
+        //Check if user was a leader
+        const team = await Team.findOne({where: {leaderId: user.id}});
+
+        if(team){
+            const users = await User.findAll({where : {teamNo: teamNo, id: { [Op.not]: user.id }}});
+            if(users.length == 0){
+                team.status = "dissolved";
+                await team.save({transaction: t});
+                res.json({
+                    message: "You successfully left the team and Team is dissolved"
+                })
+            }
+            else{
+                team.leaderId = users[0].id;
+                await team.save({transaction: t})
+                res.json({
+                    message: `You successfully left the team and ${users[0].name} is new leader`,
+                    leader : users[0]
+                })
+            }
+        }
+        else{
+            res.json({message : "You have successfully left the team"});
+        }
+
+        user.teamNo = null;
+        await user.save({transaction : t});
+        await t.commit();
+    }
+    catch(error){
+        await t.rollback();
+        console.error(error);
+        return res.status(500).json({ message: "Server error" })        
+    }
+})
 
 
 export default teamRouter;
